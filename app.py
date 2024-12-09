@@ -27,14 +27,16 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 document_store = InMemoryDocumentStore()
 retriever = InMemoryBM25Retriever(document_store=document_store)
 
-# Update prompt template to Indonesian
+# Update prompt template to include specific analysis instructions and focus
 prompt_template = """
-Diberikan dokumen-dokumen ini, jawab pertanyaannya.
+Diberikan dokumen-dokumen ini, lupakan dokumen sebelumnya dan fokuslah pada dokumen ini. 
+Anda adalah seseorang yang suka membaca, memiliki kemampuan berpikir kritis, dan dapat menyimpulkan informasi dengan baik.
 Dokumen:
 {% for doc in documents %}
     {{ doc.content }}
 {% endfor %}
 Pertanyaan: {{question}}
+Analisis: Berikan penjelasan mendalam dan ringkasan dari informasi yang relevan.
 Jawaban:
 """
 prompt_builder = PromptBuilder(template=prompt_template)
