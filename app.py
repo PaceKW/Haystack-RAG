@@ -10,6 +10,7 @@ from haystack.components.retrievers import InMemoryBM25Retriever
 from haystack.components.generators import OpenAIGenerator
 from haystack.components.builders.prompt_builder import PromptBuilder
 from haystack.utils import Secret
+import time
 
 # Load environment variables from .env file
 load_dotenv()
@@ -99,16 +100,28 @@ def chat():
     if request.method == "POST":
         question = request.form.get("question")  # Ambil pertanyaan pengguna
         if question:
-            # Jalankan pipeline RAG
-            results = rag_pipeline.run(
-                {
-                    "retriever": {"query": question},
-                    "prompt_builder": {"question": question},
-                }
-            )
+            # Retry logic
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    # Jalankan pipeline RAG
+                    results = rag_pipeline.run(
+                        {
+                            "retriever": {"query": question},
+                            "prompt_builder": {"question": question},
+                        }
+                    )
 
-            # Ambil jawaban dari LLM
-            answer = results["llm"]["replies"][0] if "replies" in results["llm"] else "Maaf, saya tidak memahami pertanyaan Anda."
+                    # Ambil jawaban dari LLM
+                    answer = results["llm"]["replies"][0] if "replies" in results["llm"] else "Maaf, saya tidak memahami pertanyaan Anda."
+                    break  # Exit loop if successful
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        time.sleep(2 ** attempt)  # Exponential backoff
+                    else:
+                        answer = "Maaf, layanan tidak tersedia saat ini. Silakan coba lagi nanti."
+                        # Log the error (optional)
+                        print(f"Error during API call: {e}")
 
             # Tambahkan pesan baru ke dalam riwayat
             messages.append({"type": "user", "content": question})
