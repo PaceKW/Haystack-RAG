@@ -130,7 +130,7 @@
       <div id="messages" class="chat-messages">
         {% for message in messages %}
         <div class="message {{ message.type }}">
-          <p>{{ message.content }}</p>
+          <p class="message-content">{{ message.content }}</p>
         </div>
         {% endfor %}
       </div>
@@ -156,8 +156,29 @@
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
       }
 
+      // Fungsi untuk menampilkan teks karakter demi karakter
+      function typeWriter(element, text, delay) {
+        let index = 0;
+        function type() {
+          if (index < text.length) {
+            element.innerHTML += text.charAt(index);
+            index++;
+            setTimeout(type, delay);
+          }
+        }
+        type();
+      }
+
       // Panggil fungsi setiap kali halaman selesai dimuat
-      window.onload = scrollToBottom;
+      window.onload = function() {
+        scrollToBottom();
+        const botMessages = document.querySelectorAll('.message.bot .message-content');
+        botMessages.forEach(msg => {
+          const text = msg.innerHTML;
+          msg.innerHTML = ''; // Kosongkan konten untuk efek ketikan
+          typeWriter(msg, text, 10); // 50 ms delay per karakter
+        });
+      };
     </script>
   </body>
 </html>
