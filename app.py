@@ -88,7 +88,7 @@ def upload():
 
             # Write the document to the document store
             document_store.write_documents([Document(content=text, meta={"source": filename, "id": str(uuid.uuid4())})])
-            flash('File berhasil diunggah dan diproses.')
+            flash('File berhasil diunggah dan diproses.')  # This will be shown only once
 
             return redirect("/chat")  # Redirect to chat page
 
