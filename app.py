@@ -64,6 +64,9 @@ def index():
 
 @app.route("/upload", methods=["GET", "POST"])
 def upload():
+    # Clear the session messages for a new chat
+    session.pop("messages", None)  # Clear previous messages
+
     if request.method == "POST":
         # Handle file upload
         uploaded_file = request.files.get("file")
