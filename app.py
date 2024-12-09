@@ -11,6 +11,7 @@ from haystack.components.generators import OpenAIGenerator
 from haystack.components.builders.prompt_builder import PromptBuilder
 from haystack.utils import Secret
 import time
+import markdown  # Import library markdown
 
 # Load environment variables from .env file
 load_dotenv()
@@ -29,15 +30,16 @@ retriever = InMemoryBM25Retriever(document_store=document_store)
 
 # Update prompt template to include specific analysis instructions and focus
 prompt_template = """
-Diberikan dokumen-dokumen ini, lupakan dokumen sebelumnya dan fokuslah pada dokumen ini. 
-Anda adalah seseorang yang suka membaca, memiliki kemampuan berpikir kritis, dan dapat menyimpulkan informasi dengan baik.
+Diberikan dokumen-dokumen berikut, lupakan dokumen sebelumnya dan fokuslah pada dokumen ini. 
+Anda adalah seorang pembaca yang kritis, memiliki kemampuan berpikir analitis, dan dapat menyimpulkan informasi dengan baik.
+
 Dokumen:
 {% for doc in documents %}
     {{ doc.content }}
 {% endfor %}
-Pertanyaan: {{question}}
-Analisis: Berikan penjelasan mendalam dan ringkasan dari informasi yang relevan.
-Jawaban:
+
+Pertanyaan: {{ question }}
+
 """
 prompt_builder = PromptBuilder(template=prompt_template)
 
@@ -101,6 +103,9 @@ def chat():
         session["messages"] = []
 
     messages = session["messages"]
+
+    # Clear flash messages to avoid showing them on new chat
+    session.pop('_flashes', None)
 
     if request.method == "POST":
         question = request.form.get("question")  # Ambil pertanyaan pengguna

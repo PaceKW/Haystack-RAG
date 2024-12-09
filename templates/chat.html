@@ -64,14 +64,12 @@
         border-radius: 15px;
         max-width: 75%;
         word-wrap: break-word;
+        background-color: #e9ecef;
+        color: black;
       }
       .message.user p {
         background-color: #6f42c1;
         color: white;
-      }
-      .message.bot p {
-        background-color: #e9ecef;
-        color: black;
       }
       .chat-input {
         display: flex;
@@ -130,7 +128,7 @@
       <div id="messages" class="chat-messages">
         {% for message in messages %}
         <div class="message {{ message.type }}">
-          <p class="message-content">{{ message.content }}</p>
+          <p class="message-content" style="margin: 0;">{{ message.content | safe }}</p>
         </div>
         {% endfor %}
       </div>
