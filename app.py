@@ -1,0 +1,123 @@
+import os
+import pdfplumber
+from flask import Flask, request, render_template, redirect, flash, session
+import secrets
+import uuid
+from dotenv import load_dotenv
+from haystack import Document, Pipeline
+from haystack.document_stores.in_memory import InMemoryDocumentStore
+from haystack.components.retrievers import InMemoryBM25Retriever
+from haystack.components.generators import OpenAIGenerator
+from haystack.components.builders.prompt_builder import PromptBuilder
+from haystack.utils import Secret
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Initialize Flask app
+app = Flask(__name__)
+app.secret_key = secrets.token_hex(16)
+
+# Initialize variables
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Initialize document store and components
+document_store = InMemoryDocumentStore()
+retriever = InMemoryBM25Retriever(document_store=document_store)
+
+# Update prompt template to Indonesian
+prompt_template = """
+Diberikan dokumen-dokumen ini, jawab pertanyaannya.
+Dokumen:
+{% for doc in documents %}
+    {{ doc.content }}
+{% endfor %}
+Pertanyaan: {{question}}
+Jawaban:
+"""
+prompt_builder = PromptBuilder(template=prompt_template)
+
+# Use Secret to wrap the API key
+llm = OpenAIGenerator(
+    api_key=Secret.from_token(os.getenv("GROQ_API_KEY")),
+    api_base_url="https://api.groq.com/openai/v1",
+    model="llama-3.3-70b-versatile",
+    generation_kwargs={"max_tokens": 512}
+)
+
+# Pipeline RAG
+rag_pipeline = Pipeline()
+rag_pipeline.add_component("retriever", retriever)
+rag_pipeline.add_component("prompt_builder", prompt_builder)
+rag_pipeline.add_component("llm", llm)
+rag_pipeline.connect("retriever", "prompt_builder.documents")
+rag_pipeline.connect("prompt_builder", "llm")
+
+# Limit the number of characters or tokens from the extracted text
+MAX_TEXT_LENGTH = 5000  # Set a maximum length for the text
+
+@app.route("/", methods=["GET"])
+def index():
+    return redirect("/upload")  # Redirect to the upload page
+
+@app.route("/upload", methods=["GET", "POST"])
+def upload():
+    if request.method == "POST":
+        # Handle file upload
+        uploaded_file = request.files.get("file")
+        if uploaded_file and uploaded_file.filename.endswith(".pdf"):
+            filename = os.path.join(UPLOAD_FOLDER, uploaded_file.filename)
+            uploaded_file.save(filename)
+
+            # Extract text from the PDF
+            text = ""
+            with pdfplumber.open(filename) as pdf:
+                for page in pdf.pages:
+                    text += page.extract_text() + "\n\n"
+
+            # Truncate the text to the maximum length
+            if len(text) > MAX_TEXT_LENGTH:
+                text = text[:MAX_TEXT_LENGTH]
+
+            # Write the document to the document store
+            document_store.write_documents([Document(content=text, meta={"source": filename, "id": str(uuid.uuid4())})])
+            flash('File berhasil diunggah dan diproses.')
+
+            return redirect("/chat")  # Redirect to chat page
+
+    return render_template("upload.html")
+
+@app.route("/chat", methods=["GET", "POST"])
+def chat():
+    # Ambil daftar pesan sebelumnya dari session
+    if "messages" not in session:
+        session["messages"] = []
+
+    messages = session["messages"]
+
+    if request.method == "POST":
+        question = request.form.get("question")  # Ambil pertanyaan pengguna
+        if question:
+            # Jalankan pipeline RAG
+            results = rag_pipeline.run(
+                {
+                    "retriever": {"query": question},
+                    "prompt_builder": {"question": question},
+                }
+            )
+
+            # Ambil jawaban dari LLM
+            answer = results["llm"]["replies"][0] if "replies" in results["llm"] else "Maaf, saya tidak memahami pertanyaan Anda."
+
+            # Tambahkan pesan baru ke dalam riwayat
+            messages.append({"type": "user", "content": question})
+            messages.append({"type": "bot", "content": answer})
+
+            # Simpan kembali riwayat ke dalam session
+            session["messages"] = messages
+
+    return render_template("chat.html", messages=messages)
+
+if __name__ == "__main__":
+    app.run(debug=True)
