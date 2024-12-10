@@ -25,16 +25,14 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Create the upload folder if it does
 
 # Update prompt template for the LLM
 prompt_template = """
-Anda adalah seorang analis yang terampil. Fokuslah pada dokumen-dokumen berikut dan abaikan dokumen sebelumnya.
-
-Dokumen:
+Anda adalah asisten yang membantu.
 {% for doc in documents %}
     {{ doc.content }}
 {% endfor %}
 
 Pertanyaan: {{ question }}
 
-Berikan analisis singkat dan relevan berdasarkan informasi dalam dokumen di atas. Jika tidak ada informasi yang relevan, jelaskan dengan singkat.
+Berikan analisis singkat dan relevan berdasarkan informasi dalam dokumen dengan langsung menjawab pertanyaan singkat, padat dan jelas dengan bahasa Indonesia. 
 """
 
 # Limit the number of characters or tokens from the extracted text
@@ -60,7 +58,7 @@ def upload():
             api_key=Secret.from_token(os.getenv("GROQ_API_KEY")),  # Get API key from environment variable
             api_base_url="https://api.groq.com/openai/v1",  # Base URL for the API
             model="llama-3.3-70b-versatile",  # Specify the model to use
-            generation_kwargs={"max_tokens": 512}  # Set generation parameters
+            generation_kwargs={"max_tokens": 1024}  # Set generation parameters
         )
         rag_pipeline = Pipeline()  # Create a new pipeline
         rag_pipeline.add_component("retriever", retriever)  # Add the retriever component
