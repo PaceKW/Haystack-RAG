@@ -38,6 +38,9 @@ Dokumen:
 {% endfor %}
 
 Pertanyaan: {{ question }}
+
+Silakan berikan jawaban yang relevan berdasarkan informasi yang terdapat dalam dokumen di atas. 
+Pastikan untuk merujuk langsung ke isi dokumen jika diperlukan untuk menjawab pertanyaan ini.
 """
 prompt_builder = PromptBuilder(template=prompt_template)  # Create a prompt builder with the template
 
