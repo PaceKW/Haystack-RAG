@@ -75,6 +75,11 @@ def upload():
         # Handle file upload
         uploaded_file = request.files.get("file")
         if uploaded_file and uploaded_file.filename.endswith(".pdf"):
+            # Hapus file dokumen sebelumnya jika ada
+            existing_files = os.listdir(UPLOAD_FOLDER)
+            for existing_file in existing_files:
+                os.remove(os.path.join(UPLOAD_FOLDER, existing_file))  # Hapus file yang ada
+
             filename = os.path.join(UPLOAD_FOLDER, uploaded_file.filename)
             uploaded_file.save(filename)
 
