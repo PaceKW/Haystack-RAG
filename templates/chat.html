@@ -130,17 +130,16 @@
         font-size: 16px;
       }
       @media (max-width: 768px) {
-        .chat-container {
-          padding: 10px;
+        .new-chat-btn {
+          padding: 5px;
+          border: none;
+          box-shadow: none;
         }
-        .chat-header {
-          font-size: 18px;
+        .new-chat-btn i {
+          margin-right: 0;
         }
-        .chat-input input {
-          padding: 8px;
-        }
-        .chat-input button {
-          width: 80px;
+        .new-chat-btn span {
+          display: none;
         }
       }
     </style>
@@ -152,7 +151,7 @@
 
       <!-- New Chat Button -->
       <a href="/upload" class="btn new-chat-btn">
-        <i class="fas fa-plus"></i> New Chat
+        <i class="fas fa-plus"></i> <span>New Chat</span>
       </a>
 
       <!-- Chat Messages -->
