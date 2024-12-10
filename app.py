@@ -11,24 +11,23 @@ from haystack.components.generators import OpenAIGenerator
 from haystack.components.builders.prompt_builder import PromptBuilder
 from haystack.utils import Secret
 import time
-import markdown  # Import library markdown
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(16)
+app.secret_key = secrets.token_hex(16)  # Set a secret key for session management
 
 # Initialize variables
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+UPLOAD_FOLDER = 'uploads'  # Folder to store uploaded files
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Create the upload folder if it doesn't exist
 
 # Initialize document store and components
-document_store = InMemoryDocumentStore()
-retriever = InMemoryBM25Retriever(document_store=document_store)
+document_store = InMemoryDocumentStore()  # Create an in-memory document store
+retriever = InMemoryBM25Retriever(document_store=document_store)  # Create a retriever for the document store
 
-# Update prompt template to include specific analysis instructions and focus
+# Update prompt template for the LLM
 prompt_template = """
 Diberikan dokumen-dokumen berikut, lupakan dokumen sebelumnya dan fokuslah pada dokumen ini. 
 Anda adalah seorang pembaca yang kritis, memiliki kemampuan berpikir analitis, dan dapat menyimpulkan informasi dengan baik.
@@ -39,124 +38,110 @@ Dokumen:
 {% endfor %}
 
 Pertanyaan: {{ question }}
-
 """
-prompt_builder = PromptBuilder(template=prompt_template)
+prompt_builder = PromptBuilder(template=prompt_template)  # Create a prompt builder with the template
 
-# Use Secret to wrap the API key
+# Use Secret to wrap the API key for security
 llm = OpenAIGenerator(
-    api_key=Secret.from_token(os.getenv("GROQ_API_KEY")),
-    api_base_url="https://api.groq.com/openai/v1",
-    model="llama-3.3-70b-versatile",
-    generation_kwargs={"max_tokens": 512}
+    api_key=Secret.from_token(os.getenv("GROQ_API_KEY")),  # Get API key from environment variable
+    api_base_url="https://api.groq.com/openai/v1",  # Base URL for the API
+    model="llama-3.3-70b-versatile",  # Specify the model to use
+    generation_kwargs={"max_tokens": 512}  # Set generation parameters
 )
 
-# Pipeline RAG
-rag_pipeline = Pipeline()
-rag_pipeline.add_component("retriever", retriever)
-rag_pipeline.add_component("prompt_builder", prompt_builder)
-rag_pipeline.add_component("llm", llm)
-rag_pipeline.connect("retriever", "prompt_builder.documents")
-rag_pipeline.connect("prompt_builder", "llm")
+# Pipeline RAG (Retrieval-Augmented Generation)
+rag_pipeline = Pipeline()  # Create a new pipeline
+rag_pipeline.add_component("retriever", retriever)  # Add the retriever component
+rag_pipeline.add_component("prompt_builder", prompt_builder)  # Add the prompt builder component
+rag_pipeline.add_component("llm", llm)  # Add the LLM component
+rag_pipeline.connect("retriever", "prompt_builder.documents")  # Connect retriever to prompt builder
+rag_pipeline.connect("prompt_builder", "llm")  # Connect prompt builder to LLM
 
 # Limit the number of characters or tokens from the extracted text
 MAX_TEXT_LENGTH = 5000  # Set a maximum length for the text
+MAX_RETRIES = 3  # Set maximum retries for API calls
 
 @app.route("/", methods=["GET"])
 def index():
-    return redirect("/upload")  # Redirect to the upload page
+    # Redirect to the upload page
+    return redirect("/upload")
 
 @app.route("/upload", methods=["GET", "POST"])
 def upload():
-    # Clear the session messages for a new chat
-    session.pop("messages", None)  # Clear previous messages
+    session.pop("messages", None)  # Clear previous messages from session
 
     if request.method == "POST":
-        # Handle file upload
-        uploaded_file = request.files.get("file")
-        if uploaded_file and uploaded_file.filename.endswith(".pdf"):
-            # Hapus file dokumen sebelumnya jika ada
-            existing_files = os.listdir(UPLOAD_FOLDER)
-            for existing_file in existing_files:
-                os.remove(os.path.join(UPLOAD_FOLDER, existing_file))  # Hapus file yang ada
+        uploaded_file = request.files.get("file")  # Get the uploaded file
+        if uploaded_file and uploaded_file.filename.endswith(".pdf"):  # Check if the file is a PDF
+            # Remove existing files in the upload folder
+            for existing_file in os.listdir(UPLOAD_FOLDER):
+                os.remove(os.path.join(UPLOAD_FOLDER, existing_file))
 
-            filename = os.path.join(UPLOAD_FOLDER, uploaded_file.filename)
-            uploaded_file.save(filename)
+            filename = os.path.join(UPLOAD_FOLDER, uploaded_file.filename)  # Create the full file path
+            uploaded_file.save(filename)  # Save the uploaded file
 
             # Extract text from the PDF
             text = ""
-            with pdfplumber.open(filename) as pdf:
-                for page in pdf.pages:
-                    text += page.extract_text() + "\n\n"
+            with pdfplumber.open(filename) as pdf:  # Open the PDF file
+                for page in pdf.pages:  # Iterate through each page
+                    text += page.extract_text() + "\n\n"  # Extract text and append it
 
             # Truncate the text to the maximum length
-            if len(text) > MAX_TEXT_LENGTH:
-                text = text[:MAX_TEXT_LENGTH]
+            text = text[:MAX_TEXT_LENGTH] if len(text) > MAX_TEXT_LENGTH else text
 
             # Write the document to the document store
             document_store.write_documents([Document(content=text, meta={"source": filename, "id": str(uuid.uuid4())})])
-            flash('File berhasil diunggah dan diproses.')  # This will be shown only once
+            flash('File berhasil diunggah dan diproses.')  # Flash a success message
 
-            return redirect("/chat")  # Redirect to chat page
+            return redirect("/chat")  # Redirect to the chat page
 
-    return render_template("upload.html")
+    return render_template("upload.html")  # Render the upload page
 
 @app.route("/chat", methods=["GET"])
 def chat():
-    # Ambil daftar pesan sebelumnya dari session
     if "messages" not in session:
-        session["messages"] = []
+        session["messages"] = []  # Initialize messages in session if not present
 
-    messages = session["messages"]
+    messages = session["messages"]  # Get messages from session
+    session.pop('_flashes', None)  # Clear flash messages
 
-    # Clear flash messages to avoid showing them on new chat
-    session.pop('_flashes', None)
-
-    return render_template("chat.html", messages=messages)  # Kembalikan tampilan chat
+    return render_template("chat.html", messages=messages)  # Render the chat page with messages
 
 @app.route("/send_message", methods=["POST"])
 def send_message():
-    # Ambil daftar pesan sebelumnya dari session
     if "messages" not in session:
-        session["messages"] = []
+        session["messages"] = []  # Initialize messages in session if not present
 
-    messages = session["messages"]
-    question = request.json.get("question")  # Ambil pertanyaan pengguna
+    messages = session["messages"]  # Get messages from session
+    question = request.json.get("question")  # Get the user's question from the request
     answer = "Maaf, saya tidak memahami pertanyaan Anda."  # Default answer
 
     if question:
-        # Retry logic
-        max_retries = 3
-        for attempt in range(max_retries):
+        for attempt in range(MAX_RETRIES):  # Retry logic for API calls
             try:
-                # Jalankan pipeline RAG
                 results = rag_pipeline.run(
                     {
-                        "retriever": {"query": question},
-                        "prompt_builder": {"question": question},
+                        "retriever": {"query": question},  # Query the retriever
+                        "prompt_builder": {"question": question},  # Pass the question to the prompt builder
                     }
                 )
-
-                # Ambil jawaban dari LLM
-                answer = results["llm"]["replies"][0] if "replies" in results["llm"] else answer
+                answer = results["llm"]["replies"][0] if "replies" in results["llm"] else answer  # Get the answer from LLM
                 break  # Exit loop if successful
             except Exception as e:
-                if attempt < max_retries - 1:
+                if attempt < MAX_RETRIES - 1:
                     time.sleep(2 ** attempt)  # Exponential backoff
                 else:
-                    answer = "Maaf, layanan tidak tersedia saat ini. Silakan coba lagi nanti."
-                    print(f"Error during API call: {e}")
+                    answer = "Maaf, layanan tidak tersedia saat ini. Silakan coba lagi nanti."  # Error message
+                    print(f"Error during API call: {e}")  # Log the error
 
-        # Tambahkan pesan baru ke dalam riwayat
+        # Append user question and bot answer to messages
         messages.append({"type": "user", "content": question})
         messages.append({"type": "bot", "content": answer})
-
-        # Simpan kembali riwayat ke dalam session
-        session["messages"] = messages
+        session["messages"] = messages  # Save messages back to session
 
         return jsonify({"answer": answer})  # Return the answer as JSON
 
     return jsonify({"answer": answer})  # Return default answer if no question
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True)  # Run the Flask app in debug mode
