@@ -29,8 +29,7 @@ retriever = InMemoryBM25Retriever(document_store=document_store)  # Create a ret
 
 # Update prompt template for the LLM
 prompt_template = """
-Diberikan dokumen-dokumen berikut, lupakan dokumen sebelumnya dan fokuslah pada dokumen ini. 
-Anda adalah seorang pembaca yang kritis, memiliki kemampuan berpikir analitis, dan dapat menyimpulkan informasi dengan baik.
+Anda adalah seorang analis yang terampil. Fokuslah pada dokumen-dokumen berikut dan abaikan dokumen sebelumnya.
 
 Dokumen:
 {% for doc in documents %}
@@ -39,9 +38,10 @@ Dokumen:
 
 Pertanyaan: {{ question }}
 
-Silakan berikan jawaban yang relevan berdasarkan informasi yang terdapat dalam dokumen di atas. 
-Jawaban harus langsung dan tidak perlu menyertakan frasa seperti "dokumen tersebut membahas tentang."
+Berikan analisis singkat dan relevan berdasarkan informasi dalam dokumen di atas. Jika tidak ada informasi yang relevan, jelaskan dengan singkat.
 """
+
+
 prompt_builder = PromptBuilder(template=prompt_template)  # Create a prompt builder with the template
 
 # Use Secret to wrap the API key for security
