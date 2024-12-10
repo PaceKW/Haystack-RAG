@@ -84,7 +84,14 @@ def upload():
             text = ""
             with pdfplumber.open(filename) as pdf:  # Open the PDF file
                 for page in pdf.pages:  # Iterate through each page
-                    text += page.extract_text() + "\n\n"  # Extract text and append it
+                    page_text = page.extract_text()  # Extract text from the page
+                    if page_text:  # Check if text was extracted
+                        text += page_text + "\n\n"  # Append extracted text
+                    else:
+                        print(f"Tidak ada teks yang ditemukan di halaman {pdf.pages.index(page) + 1}.")  # Log if no text found
+
+            # Log the extracted text length
+            print(f"Panjang teks yang diekstrak: {len(text)} karakter.")
 
             # Truncate the text to the maximum length
             text = text[:MAX_TEXT_LENGTH] if len(text) > MAX_TEXT_LENGTH else text
