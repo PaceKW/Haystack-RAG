@@ -40,7 +40,7 @@ Dokumen:
 Pertanyaan: {{ question }}
 
 Silakan berikan jawaban yang relevan berdasarkan informasi yang terdapat dalam dokumen di atas. 
-Pastikan untuk merujuk langsung ke isi dokumen jika diperlukan untuk menjawab pertanyaan ini.
+Jika dokumen tidak memiliki informasi yang relevan, berikan penjelasan bahwa dokumen tersebut tidak mengandung informasi yang dapat menjawab pertanyaan ini.
 """
 prompt_builder = PromptBuilder(template=prompt_template)  # Create a prompt builder with the template
 
@@ -135,7 +135,11 @@ def send_message():
                         "prompt_builder": {"question": question},  # Pass the question to the prompt builder
                     }
                 )
-                answer = results["llm"]["replies"][0] if "replies" in results["llm"] else answer  # Get the answer from LLM
+                # Check if the document has relevant content
+                if results["llm"]["replies"] and results["llm"]["replies"][0]:
+                    answer = results["llm"]["replies"][0]  # Get the answer from LLM
+                else:
+                    answer = "Dokumen tidak mengandung informasi yang dapat menjawab pertanyaan ini."  # Custom message for no content
                 break  # Exit loop if successful
             except Exception as e:
                 if attempt < MAX_RETRIES - 1:
