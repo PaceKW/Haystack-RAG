@@ -24,8 +24,8 @@
       }
       .chat-container {
         width: 100%;
-        max-width: 600px;
-        height: 90vh;
+        max-width: 100%;
+        height: 100vh;
         background: white;
         border-radius: 10px;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
@@ -128,6 +128,20 @@
       }
       #loading-icon i {
         font-size: 16px;
+      }
+      @media (max-width: 768px) {
+        .chat-container {
+          padding: 10px;
+        }
+        .chat-header {
+          font-size: 18px;
+        }
+        .chat-input input {
+          padding: 8px;
+        }
+        .chat-input button {
+          width: 80px;
+        }
       }
     </style>
   </head>
