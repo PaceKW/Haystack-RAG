@@ -1,6 +1,6 @@
 import os
 import pdfplumber
-from flask import Flask, request, render_template, redirect, flash, session
+from flask import Flask, request, render_template, redirect, flash, session, jsonify
 import secrets
 import uuid
 from dotenv import load_dotenv
@@ -146,6 +146,36 @@ def chat():
             session["messages"] = messages
 
     return render_template("chat.html", messages=messages)
+
+@app.route("/send_message", methods=["POST"])
+def send_message():
+    question = request.json.get("question")  # Get the user's question from the AJAX request
+    answer = "Maaf, saya tidak memahami pertanyaan Anda."  # Default answer
+
+    if question:
+        # Retry logic
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Run the RAG pipeline
+                results = rag_pipeline.run(
+                    {
+                        "retriever": {"query": question},
+                        "prompt_builder": {"question": question},
+                    }
+                )
+
+                # Get the answer from the LLM
+                answer = results["llm"]["replies"][0] if "replies" in results["llm"] else answer
+                break  # Exit loop if successful
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                else:
+                    answer = "Maaf, layanan tidak tersedia saat ini. Silakan coba lagi nanti."
+                    print(f"Error during API call: {e}")
+
+    return jsonify({"answer": answer})  # Return the answer as JSON
 
 if __name__ == "__main__":
     app.run(debug=True)

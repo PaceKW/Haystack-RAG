@@ -134,7 +134,7 @@
       </div>
 
       <!-- Chat Input -->
-      <form id="chat-form" class="chat-input" method="POST" action="/chat">
+      <form id="chat-form" class="chat-input" method="POST" action="javascript:void(0);">
         <input
           type="text"
           name="question"
@@ -156,15 +156,19 @@
 
       // Fungsi untuk menampilkan teks karakter demi karakter
       function typeWriter(element, text, delay) {
-        let index = 0;
-        function type() {
-          if (index < text.length) {
-            element.innerHTML += text.charAt(index);
-            index++;
-            setTimeout(type, delay);
+        return new Promise((resolve) => {
+          let index = 0;
+          function type() {
+            if (index < text.length) {
+              element.innerHTML += text.charAt(index);
+              index++;
+              setTimeout(type, delay);
+            } else {
+              resolve(); // Resolve the promise when typing is complete
+            }
           }
-        }
-        type();
+          type();
+        });
       }
 
       // Panggil fungsi setiap kali halaman selesai dimuat
@@ -174,9 +178,65 @@
         botMessages.forEach(msg => {
           const text = msg.innerHTML;
           msg.innerHTML = ''; // Kosongkan konten untuk efek ketikan
-          typeWriter(msg, text, 10); // 50 ms delay per karakter
+          typeWriter(msg, text, 10); // 10 ms delay per karakter
         });
       };
+
+      document.getElementById("chat-form").addEventListener("submit", function() {
+        const questionInput = document.getElementById("question");
+        const question = questionInput.value;
+
+        // Clear the input field
+        questionInput.value = '';
+
+        // Create a new message element for the user's question
+        const messagesDiv = document.getElementById("messages");
+        const userMessageDiv = document.createElement("div");
+        userMessageDiv.className = "message user";
+        const userP = document.createElement("p");
+        userP.className = "message-content";
+        userP.textContent = question;  // Set the user's question
+        userMessageDiv.appendChild(userP);
+        messagesDiv.appendChild(userMessageDiv);
+
+        // Scroll to the bottom after adding the user's message
+        scrollToBottom();
+
+        // Disable input and button while waiting for the bot's response
+        questionInput.disabled = true;
+        document.querySelector("button[type='submit']").disabled = true;
+
+        // Send the question via AJAX
+        fetch("/send_message", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ question: question })
+        })
+        .then(response => response.json())
+        .then(data => {
+          const answer = data.answer;
+
+          // Create a new message element for the bot's response
+          const botMessageDiv = document.createElement("div");
+          botMessageDiv.className = "message bot";
+          const p = document.createElement("p");
+          p.className = "message-content";
+          botMessageDiv.appendChild(p);
+          messagesDiv.appendChild(botMessageDiv);
+
+          // Typewriter effect for the bot's response
+          typeWriter(p, answer, 15).then(() => {
+            // Re-enable input and button after typing is complete
+            questionInput.disabled = false;
+            document.querySelector("button[type='submit']").disabled = false;
+            // Scroll to the bottom
+            scrollToBottom();
+          });
+        })
+        .catch(error => console.error('Error:', error));
+      });
     </script>
   </body>
 </html>
