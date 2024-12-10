@@ -101,7 +101,7 @@ def upload():
 
     return render_template("upload.html")
 
-@app.route("/chat", methods=["GET", "POST"])
+@app.route("/chat", methods=["GET"])
 def chat():
     # Ambil daftar pesan sebelumnya dari session
     if "messages" not in session:
@@ -112,44 +112,16 @@ def chat():
     # Clear flash messages to avoid showing them on new chat
     session.pop('_flashes', None)
 
-    if request.method == "POST":
-        question = request.form.get("question")  # Ambil pertanyaan pengguna
-        if question:
-            # Retry logic
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    # Jalankan pipeline RAG
-                    results = rag_pipeline.run(
-                        {
-                            "retriever": {"query": question},
-                            "prompt_builder": {"question": question},
-                        }
-                    )
-
-                    # Ambil jawaban dari LLM
-                    answer = results["llm"]["replies"][0] if "replies" in results["llm"] else "Maaf, saya tidak memahami pertanyaan Anda."
-                    break  # Exit loop if successful
-                except Exception as e:
-                    if attempt < max_retries - 1:
-                        time.sleep(2 ** attempt)  # Exponential backoff
-                    else:
-                        answer = "Maaf, layanan tidak tersedia saat ini. Silakan coba lagi nanti."
-                        # Log the error (optional)
-                        print(f"Error during API call: {e}")
-
-            # Tambahkan pesan baru ke dalam riwayat
-            messages.append({"type": "user", "content": question})
-            messages.append({"type": "bot", "content": answer})
-
-            # Simpan kembali riwayat ke dalam session
-            session["messages"] = messages
-
-    return render_template("chat.html", messages=messages)
+    return render_template("chat.html", messages=messages)  # Kembalikan tampilan chat
 
 @app.route("/send_message", methods=["POST"])
 def send_message():
-    question = request.json.get("question")  # Get the user's question from the AJAX request
+    # Ambil daftar pesan sebelumnya dari session
+    if "messages" not in session:
+        session["messages"] = []
+
+    messages = session["messages"]
+    question = request.json.get("question")  # Ambil pertanyaan pengguna
     answer = "Maaf, saya tidak memahami pertanyaan Anda."  # Default answer
 
     if question:
@@ -157,7 +129,7 @@ def send_message():
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                # Run the RAG pipeline
+                # Jalankan pipeline RAG
                 results = rag_pipeline.run(
                     {
                         "retriever": {"query": question},
@@ -165,7 +137,7 @@ def send_message():
                     }
                 )
 
-                # Get the answer from the LLM
+                # Ambil jawaban dari LLM
                 answer = results["llm"]["replies"][0] if "replies" in results["llm"] else answer
                 break  # Exit loop if successful
             except Exception as e:
@@ -175,7 +147,16 @@ def send_message():
                     answer = "Maaf, layanan tidak tersedia saat ini. Silakan coba lagi nanti."
                     print(f"Error during API call: {e}")
 
-    return jsonify({"answer": answer})  # Return the answer as JSON
+        # Tambahkan pesan baru ke dalam riwayat
+        messages.append({"type": "user", "content": question})
+        messages.append({"type": "bot", "content": answer})
+
+        # Simpan kembali riwayat ke dalam session
+        session["messages"] = messages
+
+        return jsonify({"answer": answer})  # Return the answer as JSON
+
+    return jsonify({"answer": answer})  # Return default answer if no question
 
 if __name__ == "__main__":
     app.run(debug=True)
