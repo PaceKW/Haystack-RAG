@@ -23,10 +23,6 @@ app.secret_key = secrets.token_hex(16)  # Set a secret key for session managemen
 UPLOAD_FOLDER = 'uploads'  # Folder to store uploaded files
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Create the upload folder if it doesn't exist
 
-# Initialize document store and components
-document_store = InMemoryDocumentStore()  # Create an in-memory document store
-retriever = InMemoryBM25Retriever(document_store=document_store)  # Create a retriever for the document store
-
 # Update prompt template for the LLM
 prompt_template = """
 Anda adalah seorang analis yang terampil. Fokuslah pada dokumen-dokumen berikut dan abaikan dokumen sebelumnya.
@@ -40,25 +36,6 @@ Pertanyaan: {{ question }}
 
 Berikan analisis singkat dan relevan berdasarkan informasi dalam dokumen di atas. Jika tidak ada informasi yang relevan, jelaskan dengan singkat.
 """
-
-
-prompt_builder = PromptBuilder(template=prompt_template)  # Create a prompt builder with the template
-
-# Use Secret to wrap the API key for security
-llm = OpenAIGenerator(
-    api_key=Secret.from_token(os.getenv("GROQ_API_KEY")),  # Get API key from environment variable
-    api_base_url="https://api.groq.com/openai/v1",  # Base URL for the API
-    model="llama-3.3-70b-versatile",  # Specify the model to use
-    generation_kwargs={"max_tokens": 512}  # Set generation parameters
-)
-
-# Pipeline RAG (Retrieval-Augmented Generation)
-rag_pipeline = Pipeline()  # Create a new pipeline
-rag_pipeline.add_component("retriever", retriever)  # Add the retriever component
-rag_pipeline.add_component("prompt_builder", prompt_builder)  # Add the prompt builder component
-rag_pipeline.add_component("llm", llm)  # Add the LLM component
-rag_pipeline.connect("retriever", "prompt_builder.documents")  # Connect retriever to prompt builder
-rag_pipeline.connect("prompt_builder", "llm")  # Connect prompt builder to LLM
 
 # Limit the number of characters or tokens from the extracted text
 MAX_TEXT_LENGTH = 5000  # Set a maximum length for the text
@@ -74,6 +51,24 @@ def upload():
     session.pop("messages", None)  # Clear previous messages from session
 
     if request.method == "POST":
+        # Reset variables here
+        global document_store, retriever, prompt_builder, llm, rag_pipeline
+        document_store = InMemoryDocumentStore()  # Create a new document store
+        retriever = InMemoryBM25Retriever(document_store=document_store)  # Create a new retriever
+        prompt_builder = PromptBuilder(template=prompt_template)  # Create a new prompt builder
+        llm = OpenAIGenerator(
+            api_key=Secret.from_token(os.getenv("GROQ_API_KEY")),  # Get API key from environment variable
+            api_base_url="https://api.groq.com/openai/v1",  # Base URL for the API
+            model="llama-3.3-70b-versatile",  # Specify the model to use
+            generation_kwargs={"max_tokens": 512}  # Set generation parameters
+        )
+        rag_pipeline = Pipeline()  # Create a new pipeline
+        rag_pipeline.add_component("retriever", retriever)  # Add the retriever component
+        rag_pipeline.add_component("prompt_builder", prompt_builder)  # Add the prompt builder component
+        rag_pipeline.add_component("llm", llm)  # Add the LLM component
+        rag_pipeline.connect("retriever", "prompt_builder.documents")  # Connect retriever to prompt builder
+        rag_pipeline.connect("prompt_builder", "llm")  # Connect prompt builder to LLM
+
         uploaded_file = request.files.get("file")  # Get the uploaded file
         if uploaded_file and uploaded_file.filename.endswith(".pdf"):  # Check if the file is a PDF
             # Remove existing files in the upload folder
