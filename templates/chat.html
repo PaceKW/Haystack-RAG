@@ -73,6 +73,7 @@
       }
       .chat-input {
         display: flex;
+        align-items: center;
         padding: 15px;
         border-top: 1px solid #ddd;
         background-color: #fff;
@@ -83,14 +84,19 @@
         border: 1px solid #ddd;
         border-radius: 20px;
         outline: none;
+        margin-right: 10px;
       }
       .chat-input button {
-        background-color: #6f42c1;
-        color: white;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100px;
+        height: 40px;
         border: none;
         border-radius: 20px;
-        padding: 10px 20px;
-        margin-left: 10px;
+        background-color: #6f42c1;
+        color: white;
         cursor: pointer;
         transition: background-color 0.3s;
       }
@@ -112,6 +118,17 @@
         background-color: #6f42c1;
         color: white;
       }
+      #loading-icon {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+      }
+      #loading-icon i {
+        font-size: 16px;
+      }
     </style>
   </head>
   <body>
@@ -128,13 +145,20 @@
       <div id="messages" class="chat-messages">
         {% for message in messages %}
         <div class="message {{ message.type }}">
-          <p class="message-content" style="margin: 0;">{{ message.content | safe }}</p>
+          <p class="message-content" style="margin: 0">
+            {{ message.content | safe }}
+          </p>
         </div>
         {% endfor %}
       </div>
 
       <!-- Chat Input -->
-      <form id="chat-form" class="chat-input" method="POST" action="javascript:void(0);">
+      <form
+        id="chat-form"
+        class="chat-input"
+        method="POST"
+        action="javascript:void(0);"
+      >
         <input
           type="text"
           name="question"
@@ -142,8 +166,14 @@
           placeholder="Tanyakan sesuatu..."
           required
           autocomplete="off"
+          style="margin-right: 10px;"
         />
-        <button type="submit">Kirim</button>
+        <button type="submit" id="submit-button">
+          <span id="submit-text">Kirim</span>
+          <span id="loading-icon" style="display: none">
+            <i class="fas fa-spinner fa-spin"></i>
+          </span>
+        </button>
       </form>
     </div>
 
@@ -172,71 +202,87 @@
       }
 
       // Panggil fungsi setiap kali halaman selesai dimuat
-      window.onload = function() {
+      window.onload = function () {
         scrollToBottom();
-        const botMessages = document.querySelectorAll('.message.bot .message-content');
-        botMessages.forEach(msg => {
+        const botMessages = document.querySelectorAll(
+          ".message.bot .message-content"
+        );
+        botMessages.forEach((msg) => {
           const text = msg.innerHTML;
-          msg.innerHTML = ''; // Kosongkan konten untuk efek ketikan
+          msg.innerHTML = ""; // Kosongkan konten untuk efek ketikan
           typeWriter(msg, text, 10); // 10 ms delay per karakter
         });
       };
 
-      document.getElementById("chat-form").addEventListener("submit", function() {
-        const questionInput = document.getElementById("question");
-        const question = questionInput.value;
+      document
+        .getElementById("chat-form")
+        .addEventListener("submit", function () {
+          const questionInput = document.getElementById("question");
+          const question = questionInput.value;
 
-        // Clear the input field
-        questionInput.value = '';
+          // Clear the input field
+          questionInput.value = "";
 
-        // Create a new message element for the user's question
-        const messagesDiv = document.getElementById("messages");
-        const userMessageDiv = document.createElement("div");
-        userMessageDiv.className = "message user";
-        const userP = document.createElement("p");
-        userP.className = "message-content";
-        userP.textContent = question;  // Set the user's question
-        userMessageDiv.appendChild(userP);
-        messagesDiv.appendChild(userMessageDiv);
+          // Create a new message element for the user's question
+          const messagesDiv = document.getElementById("messages");
+          const userMessageDiv = document.createElement("div");
+          userMessageDiv.className = "message user";
+          const userP = document.createElement("p");
+          userP.className = "message-content";
+          userP.textContent = question; // Set the user's question
+          userMessageDiv.appendChild(userP);
+          messagesDiv.appendChild(userMessageDiv);
 
-        // Scroll to the bottom after adding the user's message
-        scrollToBottom();
+          // Scroll to the bottom after adding the user's message
+          scrollToBottom();
 
-        // Disable input and button while waiting for the bot's response
-        questionInput.disabled = true;
-        document.querySelector("button[type='submit']").disabled = true;
+          // Disable input and show loading icon while waiting for the bot's response
+          questionInput.disabled = true;
+          const submitButton = document.getElementById("submit-button");
+          const submitText = document.getElementById("submit-text");
+          const loadingIcon = document.getElementById("loading-icon");
 
-        // Send the question via AJAX
-        fetch("/send_message", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ question: question })
-        })
-        .then(response => response.json())
-        .then(data => {
-          const answer = data.answer;
+          submitText.style.display = "none"; // Hide the submit text
+          loadingIcon.style.display = "flex"; // Show loading icon
 
-          // Create a new message element for the bot's response
-          const botMessageDiv = document.createElement("div");
-          botMessageDiv.className = "message bot";
-          const p = document.createElement("p");
-          p.className = "message-content";
-          botMessageDiv.appendChild(p);
-          messagesDiv.appendChild(botMessageDiv);
+          // Send the question via AJAX
+          fetch("/send_message", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ question: question }),
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              const answer = data.answer;
 
-          // Typewriter effect for the bot's response
-          typeWriter(p, answer, 15).then(() => {
-            // Re-enable input and button after typing is complete
-            questionInput.disabled = false;
-            document.querySelector("button[type='submit']").disabled = false;
-            // Scroll to the bottom
-            scrollToBottom();
-          });
-        })
-        .catch(error => console.error('Error:', error));
-      });
+              // Create a new message element for the bot's response
+              const botMessageDiv = document.createElement("div");
+              botMessageDiv.className = "message bot";
+              const p = document.createElement("p");
+              p.className = "message-content";
+              botMessageDiv.appendChild(p);
+              messagesDiv.appendChild(botMessageDiv);
+
+              // Typewriter effect for the bot's response
+              typeWriter(p, answer, 15).then(() => {
+                // Re-enable input and hide loading icon after typing is complete
+                questionInput.disabled = false;
+                submitText.style.display = "inline"; // Show the submit text
+                loadingIcon.style.display = "none"; // Hide loading icon
+                // Scroll to the bottom after the bot's response is complete
+                scrollToBottom();
+              });
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+              // Reset button state in case of error
+              questionInput.disabled = false;
+              submitText.style.display = "inline"; // Show the submit text
+              loadingIcon.style.display = "none"; // Hide loading icon
+            });
+        });
     </script>
   </body>
 </html>
