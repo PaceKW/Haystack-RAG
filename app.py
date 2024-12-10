@@ -40,7 +40,7 @@ Dokumen:
 Pertanyaan: {{ question }}
 
 Silakan berikan jawaban yang relevan berdasarkan informasi yang terdapat dalam dokumen di atas. 
-Jika dokumen tidak memiliki informasi yang relevan, berikan penjelasan bahwa dokumen tersebut tidak mengandung informasi yang dapat menjawab pertanyaan ini.
+Jawaban harus langsung dan tidak perlu menyertakan frasa seperti "dokumen tersebut membahas tentang."
 """
 prompt_builder = PromptBuilder(template=prompt_template)  # Create a prompt builder with the template
 
